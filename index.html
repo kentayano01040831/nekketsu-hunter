@@ -254,7 +254,7 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: 
     var ex = pattern.glob, k;
     for (k = 0; k < curW.length; k++) { var b = pattern.blobs[k]; ex += curW[k] * g2(lon - b.lon, lat - b.lat, b.s); }
     var dx = lon - target.lon, dy = lat - target.lat;
-    ex += 4 * g2(dx, dy, 7) + 5 * g2(dx, dy, 1.8); // 熱血さんの居場所は、季節を問わず平年より暑い
+    ex += 4 * g2(dx, dy, 7) + 5 * g2(dx, dy, 1.8); // 松岡修造の居場所は、季節を問わず平年より暑い
     tN = n; tT = n + ex;
   }
 
@@ -564,7 +564,7 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: 
     if (rec) { best = sec; try { localStorage.setItem('netsuke_best', String(sec)); } catch (e) {} }
     $('rTime').textContent = sec.toFixed(1) + '秒'; $('rMiss').textContent = miss + '回'; $('rBest').textContent = best.toFixed(1) + '秒';
     $('clearTitle').textContent = rec ? '発見！ ベスト更新' : '発見！';
-    $('clearPlace').textContent = '熱血さんは「' + target.name + '」の街にいました。';
+    $('clearPlace').textContent = '松岡修造は「' + target.name + '」の街にいました。';
     $('clear').hidden = false; setDecide(); say('');
   }
   $('go').addEventListener('click', newGame);
