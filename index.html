@@ -1,0 +1,728 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>熱血ハンター</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+1+Code:wght@400;700&family=Zen+Kaku+Gothic+New:wght@700;900&display=swap" rel="stylesheet">
+<style>
+/* Layout: 計測機器のファインダー。上にステータス帯、中央にサーモ画面、下にメッセージ行。単一の暗い世界観で通す。 */
+:root {
+  --bg: #07090d;
+  --panel: #10141b;
+  --line: #232b38;
+  --fg: #dfe6ee;
+  --dim: #8591a3;
+  --heat: #ff8a1f;
+  --hot: #ffe35a;
+  --cold: #5b7cff;
+  --bad: #ff4d5e;
+  --good: #46e08c;
+  --font-ui: "M PLUS 1 Code", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --font-display: "Zen Kaku Gothic New", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.6;
+  padding-block: 16px 28px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1000px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; justify-content: space-between; }
+.brand { font-family: var(--font-display); font-weight: 900; font-size: 20px; letter-spacing: .04em; color: var(--hot); }
+.steps { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { border: 1px solid var(--line); color: var(--dim); padding: 3px 10px; border-radius: 3px; font-size: 12px; letter-spacing: .06em; }
+.chip.on { color: #1a0d00; background: var(--heat); border-color: var(--heat); font-weight: 700; }
+.chip.done { color: var(--good); border-color: var(--good); }
+.stats { display: flex; gap: 16px; align-items: center; font-variant-numeric: tabular-nums; }
+.stats b { color: var(--fg); font-weight: 700; }
+.stats span { color: var(--dim); }
+.clock { border: 1px solid var(--heat); padding: 2px 10px; border-radius: 3px; white-space: nowrap; }
+.clock b { color: var(--hot); font-size: 16px; }
+.clock span { font-size: 12px; }
+button { font: inherit; cursor: pointer; }
+.btn {
+  background: var(--heat); color: #1a0d00; border: 0; padding: 12px 28px; border-radius: 3px;
+  font-family: var(--font-display); font-weight: 900; font-size: 18px; letter-spacing: .08em;
+}
+.btn:hover { background: var(--hot); }
+.btn:focus-visible, .ghost:focus-visible { outline: 2px solid var(--hot); outline-offset: 2px; }
+.ghost { white-space: nowrap; background: transparent; color: var(--dim); border: 1px solid var(--line); padding: 3px 10px; border-radius: 3px; font-size: 12px; }
+.ghost[aria-pressed="true"] { color: var(--hot); border-color: var(--hot); }
+.screen { position: relative; border: 1px solid var(--line); background: #000; max-width: 100%; }
+.stage { position: relative; aspect-ratio: 16 / 9; max-width: 100%; }
+canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+.overlay {
+  position: absolute; inset: 0; display: flex; overflow-y: auto;
+  background: rgba(4, 6, 10, .9); padding: 16px; text-align: center;
+}
+.overlay[hidden] { display: none; }
+.overlay > div { margin: auto; max-width: 560px; display: flex; flex-direction: column; gap: 14px; align-items: center; }
+.overlay h1 { margin: 0; font-family: var(--font-display); font-weight: 900; font-size: clamp(30px, 6vw, 52px); letter-spacing: .06em; color: var(--hot); text-wrap: balance; }
+.overlay p { margin: 0; color: var(--fg); text-wrap: balance; }
+.how { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; text-align: left; font-size: 13px; color: var(--dim); }
+.how li b { color: var(--heat); }
+.result { display: grid; grid-template-columns: repeat(3, auto); gap: 8px 24px; justify-content: center; font-variant-numeric: tabular-nums; }
+.result dt { color: var(--dim); font-size: 12px; margin: 0; }
+.result dd { margin: 0; font-size: 22px; font-weight: 700; color: var(--hot); }
+.actions { display: flex; }
+.decide { width: 100%; padding: 14px; }
+.hints { border: 1px solid var(--line); border-radius: 3px; padding: 8px 12px; background: var(--panel); }
+.hh { display: flex; gap: 12px; justify-content: space-between; align-items: baseline; color: var(--dim); font-size: 12px; }
+.hh b { color: var(--hot); font-size: 14px; letter-spacing: .08em; }
+.hints ol { margin: 6px 0 0; padding-left: 1.6em; display: grid; gap: 2px; }
+.hints li { padding: 1px 4px; border-radius: 2px; }
+.hints li.new { background: rgba(255,138,31,.25); color: #fff; }
+.msg { min-height: 3.2em; color: var(--dim); font-size: 13px; }
+.msg.bad { color: var(--bad); }
+.msg.good { color: var(--good); }
+@media (max-width: 720px) {
+  .screen { border: 0; background: transparent; }
+  .stage { background: #000; border: 1px solid var(--line); }
+  .overlay { position: static; inset: auto; overflow: visible; background: transparent; padding: 14px 0 0; }
+  #start h1 { display: none; }
+  .how { font-size: 13px; }
+}
+@media (max-width: 520px) { .brand { font-size: 17px; } .overlay { padding: 8px; } .overlay > div { gap: 8px; } .how { font-size: 12px; } .btn { padding: 10px 22px; font-size: 16px; } }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+
+<div class="wrap">
+  <div class="bar">
+    <div class="brand">熱血ハンター</div>
+    <div class="steps" id="steps">
+      <span class="chip" data-s="1">1 世界</span>
+      <span class="chip" data-s="2">2 地域</span>
+      <span class="chip" data-s="3">3 街</span>
+    </div>
+    <div class="stats">
+      <div><span>TIME </span><b id="time">0.0</b><span>s</span></div>
+      <div><span>MISS </span><b id="miss">0</b></div>
+      <div class="clock"><b id="mon">10月</b> <span id="spd">×518,400倍速</span></div>
+      <button class="ghost" id="snd" type="button" aria-pressed="false">音 OFF</button>
+    </div>
+  </div>
+
+  <div class="screen" id="screen">
+    <div class="stage" id="stage"><canvas id="cv" width="960" height="540" aria-label="地球儀とサーモグラフィーのレンズ"></canvas></div>
+    <div class="overlay" id="start">
+      <div>
+        <h1>熱血ハンター</h1>
+        <p>地球のどこかに、やたら熱い人が1人います。サーモグラフィーに映る気温は、実際の地域の気温をもとにしています。</p>
+        <ul class="how">
+          <li><b>1 世界</b> 地球をドラッグで回し、レンズで気温を調べます。季節が変わっても平年より暑い場所が居座る所を探してクリック。</li>
+          <li><b>2 地域</b> 拡大した地表で、同じように居座る熱だまりをクリック。</li>
+          <li><b>3 街</b> 人混みの中から、手がかりに合う1人をクリック。</li>
+          <li><b>操作</b> スマホ: 1本指でレンズ、2本指で回転、ピンチで拡大縮小。PC: マウスでレンズ、クリックで決定、右ドラッグで回転、ホイールで拡大縮小。</li>
+          <li><b>ヒント</b> 季節が1年進むごとに、居場所のヒントが1つ出ます。</li>
+        </ul>
+        <button class="btn" id="go" type="button">スタート</button>
+      </div>
+    </div>
+    <div class="overlay" id="clear" hidden>
+      <div>
+        <h1 id="clearTitle">発見！</h1>
+        <p id="clearPlace"></p>
+        <dl class="result">
+          <div><dt>タイム</dt><dd id="rTime">-</dd></div>
+          <div><dt>ハズレ</dt><dd id="rMiss">-</dd></div>
+          <div><dt>ベスト</dt><dd id="rBest">-</dd></div>
+        </dl>
+        <button class="btn" id="again" type="button">もう一度さがす</button>
+      </div>
+    </div>
+  </div>
+  <div class="actions"><button class="btn decide" id="decide" type="button" hidden>ここにする</button></div>
+  <div class="msg" id="msg" role="status" aria-live="polite"></div>
+  <div class="hints" id="hints" hidden>
+    <div class="hh"><b>ヒント</b> <span id="nexth"></span></div>
+    <ol id="hl"></ol>
+  </div>
+</div>
+
+<script>
+(function () {
+  var W = 960, H = 540, CX = 480, CY = 270, PORTRAIT = false, D2R = Math.PI / 180;
+  var cv = document.getElementById('cv');
+  var ctx = cv.getContext('2d');
+  var $ = function (id) { return document.getElementById(id); };
+
+  /* ---------- 色: サーモ用レインボー配色（気温°Cに直接対応） ---------- */
+  // 温帯（0〜30°C）で色の差がはっきり出るよう、緑〜黄〜橙に段差を多く割り当てる
+  var TMIN = -30, TMAX = 45;
+  var STOPS = [[-30,[26,0,70]],[-18,[40,40,210]],[-6,[0,130,240]],[3,[0,205,225]],[11,[20,200,120]],[18,[150,225,40]],[25,[255,228,30]],[32,[255,135,0]],[39,[225,25,30]],[45,[255,255,255]]];
+  var LUT = [];
+  (function () {
+    for (var i = 0; i < 512; i++) {
+      var T = TMIN + (TMAX - TMIN) * i / 511, k = 0;
+      while (k < STOPS.length - 2 && T > STOPS[k + 1][0]) k++;
+      var a = STOPS[k], b = STOPS[k + 1], u = Math.max(0, Math.min(1, (T - a[0]) / (b[0] - a[0])));
+      LUT.push([0, 1, 2].map(function (c) { return Math.round(a[1][c] + (b[1][c] - a[1][c]) * u); }));
+    }
+  })();
+  function tc(T) { var i = Math.round((T - TMIN) / (TMAX - TMIN) * 511); return LUT[Math.max(0, Math.min(511, i))]; }
+  function tcss(T, a) { var c = tc(T); return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + (a == null ? 1 : a) + ')'; }
+
+  /* ---------- 陸地データ（簡略） ---------- */
+  var LAND = [
+    [[-168,66],[-140,70],[-95,72],[-80,70],[-62,58],[-55,50],[-67,44],[-76,35],[-81,25],[-97,26],[-105,20],[-95,16],[-83,9],[-78,8],[-90,14],[-106,23],[-117,32],[-124,40],[-125,49],[-135,58],[-150,60],[-165,60]],
+    [[-55,60],[-45,60],[-20,70],[-20,82],[-60,82],[-70,76]],
+    [[-78,8],[-60,10],[-50,0],[-35,-6],[-40,-22],[-58,-38],[-65,-55],[-72,-50],[-73,-37],[-71,-18],[-81,-5],[-79,2]],
+    [[-10,36],[-9,43],[-2,48],[5,52],[10,57],[20,70],[40,68],[70,73],[100,77],[140,72],[170,70],[180,65],[160,58],[142,50],[140,40],[130,35],[122,40],[122,30],[110,20],[106,10],[100,3],[98,15],[90,22],[80,10],[73,20],[58,25],[50,30],[56,25],[45,13],[35,28],[30,36],[26,40],[15,38],[10,44],[0,40]],
+    [[-17,21],[-6,36],[10,37],[32,31],[43,12],[51,12],[40,-5],[40,-15],[33,-26],[20,-35],[17,-33],[12,-18],[9,0],[-8,4],[-17,14]],
+    [[114,-22],[130,-12],[142,-11],[153,-26],[151.5,-34],[147,-39],[135,-35],[115,-34]],
+    [[130,31],[135,34],[140,36],[142,42],[140,45],[137,37]],
+    [[-6,50],[2,52],[-2,58],[-6,56]]
+  ];
+  var CITIES = [ // 名前, 経度, 緯度, 大陸, 国, 頭文字
+    ['東京', 139.7, 35.7, 'アジア', '日本', '東'], ['パリ', 2.35, 48.9, 'ヨーロッパ', 'フランス', 'パ'], ['ニューヨーク', -74, 40.7, '北アメリカ', 'アメリカ', 'ニ'],
+    ['シドニー', 151.2, -33.9, 'オセアニア', 'オーストラリア', 'シ'], ['カイロ', 31.2, 30, 'アフリカ', 'エジプト', 'カ'], ['リオデジャネイロ', -43.2, -22.9, '南アメリカ', 'ブラジル', 'リ'],
+    ['ナイロビ', 36.8, -1.3, 'アフリカ', 'ケニア', 'ナ'], ['デリー', 77.2, 28.6, 'アジア', 'インド', 'デ'], ['バンクーバー', -123, 49.3, '北アメリカ', 'カナダ', 'バ'],
+    ['モスクワ', 37.6, 55.8, 'ヨーロッパ', 'ロシア', 'モ'], ['北京', 116.4, 39.9, 'アジア', '中国', '北'], ['ケープタウン', 18.4, -33.9, 'アフリカ', '南アフリカ', 'ケ']
+  ];
+  var MW = 1440, MH = 700, maskA = null; // 0.25°/px, 緯度 80〜-60
+  (function () {
+    var m = document.createElement('canvas'); m.width = MW; m.height = MH;
+    var c = m.getContext('2d'); c.fillStyle = '#fff';
+    LAND.forEach(function (p) { c.beginPath(); p.forEach(function (q, i) { var x = (q[0] + 180) / 360 * MW, y = (80 - q[1]) / 140 * MH; if (i) c.lineTo(x, y); else c.moveTo(x, y); }); c.closePath(); c.fill(); });
+    var d = c.getImageData(0, 0, MW, MH).data; maskA = new Uint8Array(MW * MH);
+    for (var i = 0; i < MW * MH; i++) maskA[i] = d[i * 4 + 3];
+  })();
+  function landF(lon, lat) { // 0〜1（双一次補間）
+    if (lat > 80 || lat < -60) return 0;
+    var fx = (lon + 180) / 360 * MW - .5, fy = (80 - lat) / 140 * MH - .5;
+    var x0 = Math.floor(fx), y0 = Math.floor(fy), ax = fx - x0, ay = fy - y0;
+    function g(x, y) { x = (x + MW) % MW; y = y < 0 ? 0 : y >= MH ? MH - 1 : y; return maskA[y * MW + x]; }
+    return ((g(x0, y0) * (1 - ax) + g(x0 + 1, y0) * ax) * (1 - ay) + (g(x0, y0 + 1) * (1 - ax) + g(x0 + 1, y0 + 1) * ax) * ay) / 255;
+  }
+
+  /* ---------- 気温モデル（緯度・大陸・地形からの概算） ---------- */
+  function g2(dx, dy, s) { return Math.exp(-(dx * dx + dy * dy) / (2 * s * s)); }
+  function noise(x, y) { return .5 + .25 * Math.sin(x * .9 + Math.sin(y * 1.3)) + .25 * Math.sin(y * 1.1 + Math.cos(x * .7)); }
+  var MEAN_BUMPS = [[10,23,18,5,1],[45,24,12,5,1],[134,-25,14,3,1],[88,33,9,-12,1],[-70,-15,6,-9,1],[-40,72,14,-16,1],[-10,55,14,4,0],[100,62,25,-4,1]];
+  function baseMean(lon, lat, land) {
+    var T = 28 - 0.0070 * lat * lat;
+    for (var i = 0; i < MEAN_BUMPS.length; i++) { var b = MEAN_BUMPS[i]; if (b[4] && !land) continue; T += b[3] * g2(lon - b[0], lat - b[1], b[2]); }
+    return T;
+  }
+  function baseAmp(lon, lat, land) {
+    var a = Math.abs(lat), A;
+    if (land) { A = Math.min(0.24 * a, 14); A *= 1 + .5 * g2(lon - 100, lat - 45, 45) + .35 * g2(lon - 100, lat - 62, 28); }
+    else A = Math.min(0.07 * a, 4);
+    return A;
+  }
+  function rng(seed) { var a = seed >>> 0; return function () { a |= 0; a = a + 0x6D2B79F5 | 0; var t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  var PATTERNS = [];
+  (function () {
+    for (var y = 2016; y <= 2025; y++) {
+      var r = rng(y * 7919 + 13), p = { year: y, glob: (y - 2016) * 0.05 + (r() - .5) * .6, blobs: [] };
+      for (var k = 0; k < 7; k++) p.blobs.push({ lon: -170 + r() * 340, lat: -45 + r() * 110, s: 9 + r() * 12, amp: (2 + r() * 3) * (r() < .5 ? -1 : 1), c: r(), w: .05 + r() * .07 });
+      PATTERNS.push(p);
+    }
+  })();
+
+  /* ---------- 状態 ---------- */
+  var state = 'title'; // title | play | clear
+  var step = 1, miss = 0, t0 = 0, tEnd = 0;
+  var target = null, pattern = null, curW = [];
+  var G = { lon0: 20, lat0: 20, R: 245 };
+  var mouse = { x: CX, y: CY, in: false };
+  var flash = 0, ping = null, dirty = true;
+  var people = [], bg3 = null;
+  var soundOn = false, ac = null;
+  var DAYS_PER_SEC = 15, simDay = 280;
+  var MONTHS = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+  var startDay = 0, hintShown = 0, HINT_MAX = 6;
+  var tT = 0, tN = 0; // tempAt の結果（実測風の気温 / 平年値）
+
+  function cdiff(a, b) { var d = Math.abs(a - b); return Math.min(d, 1 - d); }
+  function updateWeights() {
+    var f = (simDay % 365) / 365; curW = [];
+    for (var k = 0; k < pattern.blobs.length; k++) { var b = pattern.blobs[k], d = cdiff(f, b.c); curW.push(b.amp * Math.exp(-d * d / (2 * b.w * b.w))); }
+  }
+  function tempAt(lon, lat) {
+    var land = landF(lon, lat) > .5 ? 1 : 0;
+    var f = (simDay % 365) / 365;
+    var n = baseMean(lon, lat, land) + (noise(lon * .5, lat * .5) - .5) * 2 + (noise(lon * 1.7, lat * 1.7) - .5) * 3;
+    n += baseAmp(lon, lat, land) * Math.tanh(lat / 6) * Math.cos(2 * Math.PI * (f - .54));
+    var ex = pattern.glob, k;
+    for (k = 0; k < curW.length; k++) { var b = pattern.blobs[k]; ex += curW[k] * g2(lon - b.lon, lat - b.lat, b.s); }
+    var dx = lon - target.lon, dy = lat - target.lat;
+    ex += 4 * g2(dx, dy, 7) + 5 * g2(dx, dy, 1.8); // 熱血さんの居場所は、季節を問わず平年より暑い
+    tN = n; tT = n + ex;
+  }
+
+  /* ---------- 球体の投影 ---------- */
+  var IL = 0, IB = 0;
+  function project(lon, lat) {
+    var l = (lon - G.lon0) * D2R, p = lat * D2R, p0 = G.lat0 * D2R;
+    var cosc = Math.sin(p0) * Math.sin(p) + Math.cos(p0) * Math.cos(p) * Math.cos(l);
+    return { x: CX + G.R * Math.cos(p) * Math.sin(l), y: CY - G.R * (Math.cos(p0) * Math.sin(p) - Math.sin(p0) * Math.cos(p) * Math.cos(l)), v: cosc > 0 };
+  }
+  function inverse(px, py) { // 球面上なら IL/IB に経度/緯度を入れて true
+    var x = (px - CX) / G.R, y = (CY - py) / G.R, rho = Math.sqrt(x * x + y * y);
+    if (rho > 1) return false;
+    var p0 = G.lat0 * D2R;
+    if (rho < 1e-9) { IL = G.lon0; IB = G.lat0; return true; }
+    var c = Math.asin(rho), sc = Math.sin(c), cc = Math.cos(c);
+    IB = Math.asin(cc * Math.sin(p0) + y * sc * Math.cos(p0) / rho) / D2R;
+    IL = G.lon0 + Math.atan2(x * sc, rho * Math.cos(p0) * cc - y * sc * Math.sin(p0)) / D2R;
+    if (IL > 180) IL -= 360; if (IL < -180) IL += 360;
+    return true;
+  }
+  function gcDist(lon1, lat1, lon2, lat2) {
+    var a = Math.sin((lat2 - lat1) * D2R / 2), b = Math.sin((lon2 - lon1) * D2R / 2);
+    var h = a * a + Math.cos(lat1 * D2R) * Math.cos(lat2 * D2R) * b * b;
+    return 2 * Math.asin(Math.min(1, Math.sqrt(h))) / D2R;
+  }
+
+  /* ---------- 地球の描画（通常の地図表示・サーモではない） ---------- */
+  var baseCv = document.createElement('canvas'), bctx = baseCv.getContext('2d');
+  var spaceCv = document.createElement('canvas');
+  function buildSpace() {
+    spaceCv.width = W; spaceCv.height = H;
+    var c = spaceCv.getContext('2d'), r = rng(5);
+    c.fillStyle = '#03050a'; c.fillRect(0, 0, W, H);
+    for (var i = 0; i < 220; i++) { c.fillStyle = 'rgba(200,215,255,' + (.15 + r() * .5) + ')'; c.fillRect(r() * W, r() * H, 1 + (r() < .1 ? 1 : 0), 1); }
+  }
+  function sstep(a, b, x) { var t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); }
+  function renderBase() {
+    var q = G.R < 600 ? .5 : 1 / 3, w = Math.ceil(W * q), h = Math.ceil(H * q);
+    baseCv.width = w; baseCv.height = h;
+    var img = bctx.createImageData(w, h), d = img.data;
+    for (var j = 0; j < h; j++) for (var i = 0; i < w; i++) {
+      var o = (j * w + i) * 4;
+      if (!inverse((i + .5) / q, (j + .5) / q)) continue;
+      var x = ((i + .5) / q - CX) / G.R, y = (CY - (j + .5) / q) / G.R, shade = .3 + .7 * Math.sqrt(Math.max(0, 1 - x * x - y * y));
+      var a = sstep(.3, .7, landF(IL, IB));
+      d[o] = (10 + 36 * a) * shade; d[o + 1] = (22 + 36 * a) * shade; d[o + 2] = (44 + 22 * a) * shade; d[o + 3] = 255;
+    }
+    bctx.putImageData(img, 0, 0); dirty = false;
+  }
+  function drawGraticule() {
+    var st = G.R < 400 ? 30 : G.R < 900 ? 10 : 5, lo, la, k, prev;
+    ctx.strokeStyle = 'rgba(130,170,230,.20)'; ctx.lineWidth = 1;
+    function line(pts) { prev = null; ctx.beginPath(); pts.forEach(function (p) { if (p.v && prev && prev.v) { ctx.moveTo(prev.x, prev.y); ctx.lineTo(p.x, p.y); } prev = p; }); ctx.stroke(); }
+    var half = Math.hypot(W, H) / 2 / G.R, whole = half >= 1, ang = whole ? 90 : Math.asin(half) / D2R + 8;
+    var span = whole ? 180 : Math.min(180, ang / Math.max(.2, Math.cos(G.lat0 * D2R)));
+    var la0 = whole ? -60 : Math.max(-80, G.lat0 - ang), la1 = whole ? 80 : Math.min(80, G.lat0 + ang), dk = G.R < 400 ? 3 : 1;
+    for (lo = Math.floor((G.lon0 - span) / st) * st; lo <= G.lon0 + span; lo += st) { var m = []; for (k = -80; k <= 80; k += dk) m.push(project(lo, k)); line(m); }
+    for (la = Math.ceil(la0 / st) * st; la <= la1; la += st) { var pl = []; for (k = G.lon0 - span; k <= G.lon0 + span; k += dk) pl.push(project(k, la)); line(pl); }
+  }
+
+  /* ---------- レンズ（この中だけサーモ表示） ---------- */
+  var LR = 88, lensCv = document.createElement('canvas'); lensCv.width = lensCv.height = LR; // 画面上は2倍で描画
+  var lctx = lensCv.getContext('2d');
+  var readout = null;
+  function drawLens() {
+    readout = null;
+    var mx = mouse.x, my = mouse.y;
+    if (!inverse(mx, my)) return;
+    var clon = IL, clat = IB;
+    tempAt(clon, clat); readout = { lon: clon, lat: clat, T: tT, diff: tT - tN };
+    var id = lctx.createImageData(LR, LR), d = id.data, half = LR / 2;
+    for (var j = 0; j < LR; j++) for (var i = 0; i < LR; i++) {
+      var dx = (i - half) * 2, dy = (j - half) * 2;
+      if (dx * dx + dy * dy > (half * 2) * (half * 2) * .98) continue;
+      if (!inverse(mx + dx, my + dy)) continue;
+      tempAt(IL, IB);
+      var c = tc(tT + (Math.random() - .5) * .3), o = (j * LR + i) * 4;
+      d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = 255;
+    }
+    lctx.putImageData(id, 0, 0);
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(lensCv, mx - half * 2, my - half * 2, LR * 2, LR * 2);
+    ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(mx, my, half * 2 * .99, 0, 7); ctx.stroke();
+    ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(mx - 10, my); ctx.lineTo(mx + 10, my); ctx.moveTo(mx, my - 10); ctx.lineTo(mx, my + 10); ctx.stroke();
+    // 読み取り表示（スマホでは大きく）
+    var ps = PORTRAIT ? 1.45 : 1, bw = 188 * ps;
+    var bx = Math.max(8, Math.min(W - bw - 8, mx - bw / 2)), by = Math.min(H - 60 * ps - 70, my + half * 2 + 8);
+    ctx.save(); ctx.translate(bx, by); ctx.scale(ps, ps);
+    ctx.fillStyle = 'rgba(0,0,0,.78)'; ctx.fillRect(0, 0, 188, 58);
+    ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.font = '12px "M PLUS 1 Code", monospace'; ctx.textBaseline = 'middle';
+    ctx.fillText(Math.abs(readout.lat).toFixed(1) + '°' + (readout.lat >= 0 ? 'N ' : 'S ') + Math.abs(readout.lon).toFixed(1) + '°' + (readout.lon >= 0 ? 'E' : 'W'), 8, 11);
+    ctx.fillStyle = '#fff'; ctx.font = '700 16px "M PLUS 1 Code", monospace';
+    ctx.fillText('気温 ' + readout.T.toFixed(1) + '°C', 8, 29);
+    ctx.font = '700 13px "M PLUS 1 Code", monospace';
+    ctx.fillStyle = readout.diff > 1.5 ? '#ff8a5a' : readout.diff < -1.5 ? '#6fb4ff' : '#c8d0dc';
+    ctx.fillText('平年差 ' + (readout.diff >= 0 ? '+' : '') + readout.diff.toFixed(1) + '°C', 8, 47);
+    ctx.restore();
+  }
+  function drawScale() {
+    var i;
+    ctx.font = (PORTRAIT ? '15' : '12') + 'px "M PLUS 1 Code", monospace'; ctx.fillStyle = '#fff';
+    if (PORTRAIT) {
+      var x0 = 40, w = W - 80, y0 = H - 54;
+      for (i = 0; i < w; i++) { ctx.fillStyle = tcss(TMIN + (TMAX - TMIN) * i / w); ctx.fillRect(x0 + i, y0, 1, 12); }
+      ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 1; ctx.strokeRect(x0 - .5, y0 - .5, w + 1, 13);
+      ctx.fillStyle = '#fff'; ctx.textBaseline = 'top'; ctx.textAlign = 'center';
+      [-30, -20, -10, 0, 10, 20, 30, 40].forEach(function (t) { var xx = x0 + (t - TMIN) / (TMAX - TMIN) * w; ctx.fillRect(xx, y0 + 12, 1, 4); ctx.fillText(t + '°', xx, y0 + 19); });
+      ctx.textAlign = 'left';
+      return;
+    }
+    var x = W - 34, y = 70, h = 260;
+    for (i = 0; i < h; i++) { ctx.fillStyle = tcss(TMAX - (TMAX - TMIN) * i / h); ctx.fillRect(x, y + i, 14, 1); }
+    ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 1; ctx.strokeRect(x - .5, y - .5, 15, h + 1);
+    ctx.fillStyle = '#fff'; ctx.textBaseline = 'middle'; ctx.textAlign = 'right';
+    [40, 30, 20, 10, 0, -10, -20, -30].forEach(function (t) { var yy = y + (TMAX - t) / (TMAX - TMIN) * h; ctx.fillRect(x - 4, yy, 4, 1); ctx.fillText(t + '°C', x - 8, yy); });
+    ctx.textAlign = 'left';
+  }
+
+  /* ---------- 画面レイアウト（PC: 16:9 / スマホ: 縦長 3:4） ---------- */
+  function R1() { return PORTRAIT ? 275 : 245; }
+  function R2() { return PORTRAIT ? 690 : 1100; }
+  function applyLayout(force) {
+    var p = window.innerWidth <= 720;
+    if (!force && p === PORTRAIT) return;
+    PORTRAIT = p; W = p ? 600 : 960; H = p ? 800 : 540;
+    cv.width = W; cv.height = H; CX = W / 2; CY = p ? H / 2 - 30 : H / 2;
+    $('stage').style.aspectRatio = W + ' / ' + H;
+    buildSpace();
+    if (step === 1) G.R = R1(); else if (step === 2) G.R = R2();
+    if (step === 3 && state !== 'title') buildCity();
+    dirty = true;
+  }
+  window.addEventListener('resize', function () { applyLayout(false); });
+
+  /* ---------- ゲーム進行 ---------- */
+  function say(text, cls) { var m = $('msg'); m.textContent = text; m.className = 'msg' + (cls ? ' ' + cls : ''); }
+  function setSteps() {
+    document.querySelectorAll('#steps .chip').forEach(function (c) {
+      var s = +c.dataset.s; c.className = 'chip' + (state === 'clear' || s < step ? ' done' : (s === step ? ' on' : ''));
+    });
+  }
+  function beep(freq, dur, type) {
+    if (!soundOn) return;
+    try {
+      ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+      var o = ac.createOscillator(), g = ac.createGain();
+      o.type = type || 'sine'; o.frequency.value = freq;
+      g.gain.setValueAtTime(.12, ac.currentTime); g.gain.exponentialRampToValueAtTime(.0001, ac.currentTime + dur);
+      o.connect(g); g.connect(ac.destination); o.start(); o.stop(ac.currentTime + dur);
+    } catch (e) {}
+  }
+  function hintText(n) {
+    var T = target, bandLat = Math.floor(Math.abs(T.lat) / 10) * 10, bandLon = Math.floor(Math.abs(T.lon) / 30) * 30;
+    return [
+      (T.lat >= 0 ? '北' : '南') + '半球・' + (T.lon >= 0 ? '東' : '西') + '半球にいます。',
+      '緯度は' + (T.lat >= 0 ? '北緯' : '南緯') + bandLat + '〜' + (bandLat + 10) + '度の間です。',
+      '大陸は「' + T.cont + '」です。',
+      '経度は' + (T.lon >= 0 ? '東経' : '西経') + bandLon + '〜' + (bandLon + 30) + '度の間です。',
+      '国は「' + T.country + '」です。',
+      '街の名前は' + T.name.length + '文字で、最初の文字は「' + T.initial + '」です。'
+    ][n];
+  }
+  function addHint() {
+    var n = hintShown++, li = document.createElement('li');
+    li.textContent = hintText(n); li.className = 'new'; $('hl').appendChild(li);
+    setTimeout(function () { li.className = ''; }, 2500);
+    beep(740, .12, 'triangle'); say('1年が経ちました。ヒント' + (n + 1) + ': ' + hintText(n), 'good');
+  }
+  function pickRound() {
+    var c = CITIES[Math.floor(Math.random() * CITIES.length)];
+    target = { name: c[0], lon: c[1], lat: c[2], cont: c[3], country: c[4], initial: c[5] };
+    pattern = PATTERNS[Math.floor(Math.random() * PATTERNS.length)];
+    simDay = Math.random() * 365; step = 1; dirty = true;
+    G = { lon0: -40 + Math.random() * 160, lat0: 15 + Math.random() * 20, R: R1() };
+  }
+  function newGame() {
+    pickRound();
+    miss = 0; flash = 0; ping = null; state = 'play'; t0 = performance.now(); startDay = simDay; hintShown = 0; $('hl').innerHTML = ''; $('hints').hidden = false; setDecide();
+    $('miss').textContent = '0'; $('start').hidden = true; $('clear').hidden = true;
+    setSteps();
+    say(touchSeen || (window.matchMedia && matchMedia('(pointer: coarse)').matches) ? '1本指でレンズを動かし、2本指ドラッグで地球を回転、ピンチで拡大縮小します。場所が決まったら「ここにする」を押してください。1年経つごとにヒントが出ます。' : 'マウスでレンズを動かし、クリックで決定します。右ドラッグ（またはShift+ドラッグ）で回転、ホイールで拡大縮小です。1年経つごとにヒントが出ます。');
+  }
+
+  var CITY = { blds: [] };
+  function buildCity() {
+    CITY.blds = [];
+    function block(x, y, w, h) {
+      var ws = [];
+      for (var k = 0; k < w * h / 700; k++) ws.push([x + 6 + Math.random() * (w - 14), y + 6 + Math.random() * (h - 14), Math.random() < .2]);
+      CITY.blds.push({ x: x, y: y, w: w, h: h, ws: ws, dt: -4 - Math.random() * 2 });
+    }
+    var x, i;
+    for (x = 0; x < W; x += 120) block(x + 6, 0, 108, H * .17 + Math.random() * H * .05);
+    for (x = 0; x < W; x += 120) block(x + 6, H * .85 - Math.random() * H * .03, 108, H * .2);
+    people = [];
+    var n = PORTRAIT ? 20 : 32, ymin = H * .3, ymax = H * .8;
+    for (i = 0; i < n; i++) {
+      var dir = Math.random() < .5 ? -1 : 1;
+      var acc = i === 0 ? 'band' : i < 7 ? 'cap' : i < 13 ? 'glass' : i < 18 ? 'bag' : i < 23 ? 'scarf' : 'none';
+      people.push({ x: Math.random() * W, y: ymin + Math.random() * (ymax - ymin), vx: dir * (14 + Math.random() * 20), vy: (Math.random() - .5) * 5, dir: dir, ph: Math.random() * 6,
+        tor: 23 + Math.random() * 6, leg: 17 + Math.random() * 6, hair: 25 + Math.random() * 4, skin: 32.5 + Math.random() * 1.8, acc: acc, role: i === 0 ? 't' : 'n', s: 1 });
+    }
+  }
+
+  /* ---------- 入力 ----------
+     スマホ: 1本指=レンズ移動 / 2本指ドラッグ=回転 / ピンチ=拡大縮小 / 「ここにする」=決定
+     PC: マウス移動=レンズ / クリック=決定 / 右ドラッグかShift+ドラッグ=回転 / ホイール=拡大縮小 */
+  var ptrs = {}, nptr = 0, touchSeen = false, TOUCH_OFF = 120, prevMid = null, prevDist = 0;
+  function evPos(e) { var r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H }; }
+  function rotateBy(dx, dy) {
+    var k = 180 / Math.PI / G.R * (G.R < 400 ? 1.25 : 1);
+    G.lon0 -= dx * k; G.lat0 = Math.max(-80, Math.min(80, G.lat0 + dy * k));
+    if (G.lon0 > 180) G.lon0 -= 360; if (G.lon0 < -180) G.lon0 += 360;
+    dirty = true;
+  }
+  function zoomBy(f) { G.R = Math.max(R1() * .8, Math.min(R2() * 3, G.R * f)); dirty = true; }
+  function setLens(p, touch) { mouse.x = p.x; mouse.y = touch && step !== 3 ? Math.max(0, p.y - TOUCH_OFF) : p.y; mouse.in = true; }
+  function pair() { var ids = Object.keys(ptrs); return [ptrs[ids[0]], ptrs[ids[1]]]; }
+  function setDecide() { $('decide').hidden = !(touchSeen && state === 'play' && step !== 3); }
+  cv.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+  cv.addEventListener('pointerdown', function (e) {
+    if (state === 'title') return;
+    var p = evPos(e), touch = e.pointerType !== 'mouse';
+    if (touch) { touchSeen = true; setDecide(); }
+    ptrs[e.pointerId] = { x: p.x, y: p.y, sx: p.x, sy: p.y, moved: false, touch: touch, rot: !touch && (e.button === 2 || e.shiftKey || e.button === 1), btn: e.button };
+    nptr++;
+    try { cv.setPointerCapture(e.pointerId); } catch (_) {}
+    if (nptr >= 2) {
+      var pr = pair(); pr[0].moved = pr[1].moved = true;
+      prevMid = { x: (pr[0].x + pr[1].x) / 2, y: (pr[0].y + pr[1].y) / 2 }; prevDist = Math.hypot(pr[0].x - pr[1].x, pr[0].y - pr[1].y);
+    } else if (!ptrs[e.pointerId].rot && step !== 3 || touch) setLens(p, touch);
+  });
+  cv.addEventListener('pointermove', function (e) {
+    var p = evPos(e), q = ptrs[e.pointerId], touch = e.pointerType !== 'mouse';
+    if (!q) { if (!touch && state !== 'title') setLens(p, false); return; }
+    var dx = p.x - q.x, dy = p.y - q.y; q.x = p.x; q.y = p.y;
+    if (Math.hypot(p.x - q.sx, p.y - q.sy) > 8) q.moved = true;
+    if (nptr >= 2 && step !== 3) {
+      var pr = pair(), mid = { x: (pr[0].x + pr[1].x) / 2, y: (pr[0].y + pr[1].y) / 2 }, dist = Math.hypot(pr[0].x - pr[1].x, pr[0].y - pr[1].y);
+      if (prevMid) rotateBy(mid.x - prevMid.x, mid.y - prevMid.y);
+      if (prevDist > 10 && dist > 10) zoomBy(dist / prevDist);
+      prevMid = mid; prevDist = dist;
+    } else if (nptr === 1) {
+      if (q.rot) rotateBy(dx, dy);
+      else if (q.moved || !touch) setLens(p, touch);
+    }
+  });
+  function endPtr(e, cancelled) {
+    var q = ptrs[e.pointerId]; if (!q) return;
+    var p = evPos(e);
+    delete ptrs[e.pointerId]; nptr--;
+    if (nptr === 1) { var rest = pair()[0]; if (rest) rest.moved = true; }
+    if (nptr === 0) { prevMid = null; prevDist = 0; }
+    if (cancelled || q.moved || state !== 'play') return;
+    if (q.touch) { if (step === 3) guess(p.x, p.y); else setLens(p, true); }
+    else if (!q.rot && q.btn === 0) guess(p.x, p.y);
+  }
+  cv.addEventListener('pointerup', function (e) { endPtr(e, false); });
+  cv.addEventListener('pointercancel', function (e) { endPtr(e, true); });
+  cv.addEventListener('pointerleave', function (e) { if (e.pointerType === 'mouse' && !ptrs[e.pointerId]) mouse.in = false; });
+  cv.addEventListener('wheel', function (e) { if (state === 'title' || step === 3) return; e.preventDefault(); zoomBy(Math.exp(-e.deltaY * (e.ctrlKey ? .01 : .0015))); }, { passive: false });
+  window.addEventListener('keydown', function (e) {
+    if (state !== 'play' || step === 3) return;
+    var m = { ArrowLeft: [-30, 0], ArrowRight: [30, 0], ArrowUp: [0, -30], ArrowDown: [0, 30] }[e.key];
+    if (m) { rotateBy(m[0], m[1]); e.preventDefault(); }
+    else if (e.key === '+' || e.key === '=') zoomBy(1.15); else if (e.key === '-') zoomBy(1 / 1.15);
+  });
+  $('decide').addEventListener('click', function () { if (state === 'play' && step !== 3 && mouse.in) guess(mouse.x, mouse.y); });
+
+  function guess(x, y) {
+    if (step === 3) return guessCity(x, y);
+    if (!inverse(x, y)) return;
+    var d = gcDist(IL, IB, target.lon, target.lat), need = step === 1 ? 12 : 3;
+    ping = { x: x, y: y, t: 0, ok: d <= need };
+    if (d <= need) {
+      beep(1200, .25, 'triangle'); flash = 1;
+      if (step === 1) {
+        G = { lon0: IL + (target.lon - IL) * .5, lat0: Math.max(-70, Math.min(70, IB + (target.lat - IB) * .5)), R: R2() };
+        step = 2; dirty = true;
+        say('ロックオン。地表を拡大しました。ドラッグで少し動かして、居座る熱だまりを探してください。', 'good');
+      } else {
+        step = 3; buildCity(); setDecide();
+        say('街に到着しました。手がかり: 頭に細いハチマキ（冷たい線）をしている人を探してください。', 'good');
+      }
+      setSteps();
+    } else {
+      miss++; $('miss').textContent = miss; beep(160, .18, 'square');
+      say('ここではないようです。季節が進んでも平年より暑い場所を探してください。', 'bad');
+    }
+  }
+  function guessCity(x, y) {
+    var best = null, bd = 1e9;
+    people.forEach(function (p) { var d = Math.hypot(p.x - x, p.y - 20 * p.s - y) / p.s; if (d < bd) { bd = d; best = p; } });
+    ping = { x: x, y: y, t: 0, ok: best && best.role === 't' && bd < 34 };
+    if (ping.ok) { finish(); return; }
+    miss++; $('miss').textContent = miss; beep(160, .18, 'square');
+    say(bd < 34 ? 'ハズレです。ハチマキは額の高い位置を横切り、後ろに2本のなびく線があります。' : 'ハズレです。人の上をクリックしてください。', 'bad');
+  }
+  function finish() {
+    state = 'clear'; tEnd = performance.now(); setSteps(); flash = 1;
+    beep(880, .15, 'triangle'); setTimeout(function () { beep(1320, .3, 'triangle'); }, 140);
+    var sec = (tEnd - t0) / 1000, best = null;
+    try { var b = parseFloat(localStorage.getItem('netsuke_best')); if (!isNaN(b)) best = b; } catch (e) {}
+    var rec = best == null || sec < best;
+    if (rec) { best = sec; try { localStorage.setItem('netsuke_best', String(sec)); } catch (e) {} }
+    $('rTime').textContent = sec.toFixed(1) + '秒'; $('rMiss').textContent = miss + '回'; $('rBest').textContent = best.toFixed(1) + '秒';
+    $('clearTitle').textContent = rec ? '発見！ ベスト更新' : '発見！';
+    $('clearPlace').textContent = '熱血さんは「' + target.name + '」の街にいました。';
+    $('clear').hidden = false; setDecide(); say('');
+  }
+  $('go').addEventListener('click', newGame);
+  $('again').addEventListener('click', newGame);
+  $('snd').addEventListener('click', function () {
+    soundOn = !soundOn; this.setAttribute('aria-pressed', soundOn); this.textContent = soundOn ? '音 ON' : '音 OFF'; beep(660, .1);
+  });
+  $('spd').textContent = '×' + (DAYS_PER_SEC * 86400).toLocaleString('en-US') + '倍速';
+
+  /* ---------- 街の描画（温度を輝度で描いた低解像度バッファに、ぼかしとノイズをかけて着色） ---------- */
+  var scan = document.createElement('canvas'); scan.width = 4; scan.height = 4;
+  (function () { var c = scan.getContext('2d'); c.fillStyle = 'rgba(0,0,0,.13)'; c.fillRect(0, 3, 4, 1); })();
+  var heatCv = document.createElement('canvas'), hx = null, gbuf = null;
+  function ensureHeat() {
+    var w = Math.round(W / 2), h = Math.round(H / 2);
+    if (heatCv.width !== w || heatCv.height !== h) { heatCv.width = w; heatCv.height = h; hx = heatCv.getContext('2d', { willReadFrequently: true }); gbuf = new Uint8Array(w * h); }
+  }
+  function gv(T) { return Math.max(0, Math.min(255, Math.round((T - TMIN) / (TMAX - TMIN) * 255))); }
+  function gcss(T, a) { var g = gv(T); return 'rgba(' + g + ',' + g + ',' + g + ',' + (a == null ? 1 : a) + ')'; }
+
+  function drawPersonHeat(c, p) {
+    var t = Math.max(0, Math.min(1, (p.y - H * .3) / (H * .5))), s = (PORTRAIT ? 2.0 : 1.85) * (.8 + .45 * t);
+    p.s = s;
+    var sw = Math.sin(p.ph * 1.2), k, ang;
+    c.save(); c.translate(p.x, p.y); c.scale(s * p.dir, s); c.lineCap = 'round';
+    var halo = c.createRadialGradient(0, -20, 4, 0, -20, 56);
+    halo.addColorStop(0, gcss(p.tor + 1, .30)); halo.addColorStop(1, gcss(p.tor + 1, 0));
+    c.fillStyle = halo; c.beginPath(); c.arc(0, -20, 56, 0, 7); c.fill();
+    // 脚と靴
+    for (k = -1; k <= 1; k += 2) {
+      ang = sw * .45 * k;
+      var fx = k * 3 + Math.sin(ang) * 28, fy = Math.cos(ang) * 28;
+      c.strokeStyle = gcss(p.leg); c.lineWidth = 7.5; c.beginPath(); c.moveTo(k * 3, 0); c.lineTo(fx, fy); c.stroke();
+      c.fillStyle = gcss(16); c.beginPath(); c.ellipse(fx + 2, fy + 1, 5.5, 3, 0, 0, 7); c.fill();
+    }
+    // 背面の荷物
+    if (p.acc === 'bag') { c.fillStyle = gcss(13); c.beginPath(); c.rect(-15, -25, 8, 17); c.fill(); }
+    // 胴体
+    c.fillStyle = gcss(p.tor); c.beginPath(); c.moveTo(-10.5, -25); c.lineTo(10.5, -25); c.lineTo(8, 1); c.lineTo(-8, 1); c.closePath(); c.fill();
+    c.fillStyle = gcss(p.skin - 5, .55); c.beginPath(); c.ellipse(0, -23, 5, 3.5, 0, 0, 7); c.fill(); // 首元
+    // 腕と手
+    for (k = -1; k <= 1; k += 2) {
+      ang = -sw * .5 * k; var hx2 = k * 10.5 + Math.sin(ang) * 22, hy2 = -23 + Math.cos(ang) * 22;
+      c.strokeStyle = gcss(p.tor - 1); c.lineWidth = 6; c.beginPath(); c.moveTo(k * 10.5, -23); c.lineTo(hx2, hy2); c.stroke();
+      c.fillStyle = gcss(p.skin - 1); c.beginPath(); c.arc(hx2, hy2, 3.4, 0, 7); c.fill();
+    }
+    // 首・頭・髪
+    c.fillStyle = gcss(p.skin - 1); c.fillRect(-2.8, -31, 5.6, 7);
+    var bloom = c.createRadialGradient(0, -38, 2, 0, -38, 20);
+    bloom.addColorStop(0, gcss(p.skin, .35)); bloom.addColorStop(1, gcss(p.skin, 0));
+    c.fillStyle = bloom; c.beginPath(); c.arc(0, -38, 20, 0, 7); c.fill();
+    c.fillStyle = gcss(p.skin); c.beginPath(); c.arc(0, -38, 8.6, 0, 7); c.fill();
+    c.fillStyle = gcss(p.hair); c.beginPath(); c.arc(0, -38.6, 9, Math.PI * 1.04, Math.PI * 1.96); c.closePath(); c.fill();
+    // 小物・目印
+    if (p.acc === 'cap') { c.fillStyle = gcss(14); c.beginPath(); c.arc(0, -39, 9.4, Math.PI, 0); c.fill(); c.fillRect(2, -41.5, 11, 2.6); }
+    else if (p.acc === 'glass') { c.fillStyle = gcss(16); c.fillRect(-8, -40.2, 16, 3); }
+    else if (p.acc === 'scarf') { c.fillStyle = gcss(15); c.beginPath(); c.rect(-6.5, -31.5, 13, 5.5); c.fill(); }
+    else if (p.acc === 'band') {
+      c.fillStyle = gcss(1); c.fillRect(-9, -45.6, 18, 3.6);
+      for (k = 0; k < 2; k++) c.fillRect(-9 - 10, -45.4 + k * 2.8 + Math.sin(p.ph * 2 + k * 1.7) * 1.6, 10, 2.1);
+    }
+    c.restore();
+  }
+
+  function drawCityHeat(c, Tc) {
+    c.save(); c.scale(.5, .5);
+    var g = c.createLinearGradient(0, 0, 0, H); g.addColorStop(0, gcss(Tc - 4)); g.addColorStop(1, gcss(Tc - 1.5));
+    c.fillStyle = g; c.fillRect(0, 0, W, H);
+    c.fillStyle = gcss(Tc + 1.2, .45); c.fillRect(0, H * .27, W, H * .6); // 日に温められた路面
+    CITY.blds.forEach(function (b) {
+      c.fillStyle = gcss(Tc + b.dt); c.fillRect(b.x, b.y, b.w, b.h);
+      b.ws.forEach(function (w) { c.fillStyle = gcss(Tc + b.dt + (w[2] ? 9 : 2)); c.fillRect(w[0], w[1], 5, 4); });
+    });
+    people.slice().sort(function (a, b) { return a.y - b.y; }).forEach(function (p) { drawPersonHeat(c, p); });
+    c.restore();
+  }
+  function presentHeat() {
+    var w = heatCv.width, h = heatCv.height, img = hx.getImageData(0, 0, w, h), d = img.data, n = w * h, i;
+    for (i = 0; i < n; i++) {
+      var g = d[i * 4]; gbuf[i] = g;
+      var c = LUT[Math.max(0, Math.min(511, Math.round((g + (Math.random() - .5) * 5) / 255 * 511)))], o = i * 4;
+      d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = 255;
+    }
+    hx.putImageData(img, 0, 0);
+    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(heatCv, 0, 0, W, H);
+  }
+  function drawCamHud(Tc) {
+    var v = ctx.createRadialGradient(CX, H / 2, Math.min(W, H) * .45, CX, H / 2, Math.hypot(W, H) * .6);
+    v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,.45)'); ctx.fillStyle = v; ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 2;
+    [[14, 14, 1, 1], [W - 14, 14, -1, 1], [14, H - 14, 1, -1], [W - 14, H - 14, -1, -1]].forEach(function (q) { ctx.beginPath(); ctx.moveTo(q[0], q[1] + q[3] * 26); ctx.lineTo(q[0], q[1]); ctx.lineTo(q[0] + q[2] * 26, q[1]); ctx.stroke(); });
+    ctx.fillStyle = 'rgba(0,0,0,.65)'; ctx.fillRect(24, 24, 170, 26);
+    ctx.fillStyle = '#fff'; ctx.font = '700 13px "M PLUS 1 Code", monospace'; ctx.textBaseline = 'middle';
+    ctx.fillText('周辺気温 ' + Tc.toFixed(1) + '°C', 32, 37);
+    if (mouse.in && !touchSeen && state === 'play') { // スポット測温（PCのみ）
+      var gi = Math.max(0, Math.min(heatCv.width - 1, Math.floor(mouse.x / 2))) + Math.max(0, Math.min(heatCv.height - 1, Math.floor(mouse.y / 2))) * heatCv.width;
+      var T = TMIN + gbuf[gi] / 255 * (TMAX - TMIN);
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(mouse.x, mouse.y, 14, 0, 7);
+      ctx.moveTo(mouse.x - 22, mouse.y); ctx.lineTo(mouse.x - 8, mouse.y); ctx.moveTo(mouse.x + 8, mouse.y); ctx.lineTo(mouse.x + 22, mouse.y);
+      ctx.moveTo(mouse.x, mouse.y - 22); ctx.lineTo(mouse.x, mouse.y - 8); ctx.moveTo(mouse.x, mouse.y + 8); ctx.lineTo(mouse.x, mouse.y + 22); ctx.stroke();
+      var bx = Math.min(W - 84, mouse.x + 20), by = Math.max(14, mouse.y - 34);
+      ctx.fillStyle = 'rgba(0,0,0,.72)'; ctx.fillRect(bx, by, 78, 22); ctx.fillStyle = '#fff'; ctx.font = '700 13px "M PLUS 1 Code", monospace';
+      ctx.fillText(T.toFixed(1) + '°C', bx + 8, by + 11);
+    }
+  }
+
+  var last = 0;
+  function frame(now) {
+    var dt = Math.min(.05, (now - last) / 1000); last = now;
+    ctx.clearRect(0, 0, W, H);
+    if (state !== 'clear') simDay += dt * DAYS_PER_SEC;
+    updateWeights();
+    if (step === 3) {
+      tempAt(target.lon, target.lat); var Tl = tN, Tc = Math.max(-10, Math.min(33, tN));
+      people.forEach(function (p) {
+        p.x += p.vx * dt; p.y += p.vy * dt; p.ph += dt * 2.6;
+        if (p.x > W + 60) p.x = -60; if (p.x < -60) p.x = W + 60;
+        if (p.y < H * .3 || p.y > H * .8) p.vy *= -1;
+      });
+      ensureHeat(); drawCityHeat(hx, Tc); presentHeat(); drawCamHud(Tl);
+      drawScale();
+    } else {
+      if (state === 'title') { G.lon0 += dt * 9; if (G.lon0 > 180) G.lon0 -= 360; dirty = true; mouse.x = CX + Math.cos(now / 1400) * 110; mouse.y = CY + Math.sin(now / 1000) * 70; mouse.in = true; }
+      if (dirty) renderBase();
+      if (G.R < Math.hypot(W, H) / 2) {
+        ctx.drawImage(spaceCv, 0, 0);
+        var gl = ctx.createRadialGradient(CX, CY, G.R * .96, CX, CY, G.R * 1.07);
+        gl.addColorStop(0, 'rgba(90,150,255,.35)'); gl.addColorStop(1, 'rgba(90,150,255,0)');
+        ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(CX, CY, G.R * 1.07, 0, 7); ctx.fill();
+      }
+      ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(baseCv, 0, 0, W, H);
+      drawGraticule();
+      if (mouse.in && (state === 'play' || state === 'title')) drawLens();
+      drawScale();
+    }
+    if (ping) {
+      ping.t += dt; var k = Math.min(1, ping.t / .6);
+      ctx.strokeStyle = ping.ok ? 'rgba(70,224,140,' + (1 - k) + ')' : 'rgba(255,77,94,' + (1 - k) + ')';
+      ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(ping.x, ping.y, 10 + k * 60, 0, 7); ctx.stroke();
+      if (k >= 1) ping = null;
+    }
+    if (step === 3) { ctx.fillStyle = ctx.createPattern(scan, 'repeat'); ctx.fillRect(0, 0, W, H); }
+    if (flash > 0) { ctx.fillStyle = 'rgba(255,255,255,' + flash * .55 + ')'; ctx.fillRect(0, 0, W, H); flash = Math.max(0, flash - dt * 2.5); }
+    if (state === 'play') {
+      $('time').textContent = ((now - t0) / 1000).toFixed(1);
+      var yrs = Math.floor((simDay - startDay) / 365);
+      while (hintShown < yrs && hintShown < HINT_MAX) addHint();
+      $('nexth').textContent = hintShown < HINT_MAX ? '次のヒントまで ' + Math.ceil((365 - (simDay - startDay) % 365) / DAYS_PER_SEC) + '秒' : '全ヒント公開済み';
+    }
+    $('mon').textContent = MONTHS[Math.floor(((simDay % 365) / 365) * 12) % 12];
+    requestAnimationFrame(frame);
+  }
+  applyLayout(true); pickRound(); updateWeights();
+  requestAnimationFrame(function (n) { last = n; frame(n); });
+  setSteps();
+})();
+</script>
+
+</body></html>
